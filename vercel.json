@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend/api-server/src/index.ts",
+      "src": "backend/api-server/src/app.ts",
       "use": "@vercel/node"
     },
     {
@@ -13,11 +13,10 @@
       }
     }
   ],
-  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "backend/api-server/src/index.ts"
+      "destination": "backend/api-server/src/app.ts"
     },
     {
       "source": "/(.*)",
