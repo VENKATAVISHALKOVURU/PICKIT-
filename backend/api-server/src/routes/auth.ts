@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { db, usersTable, shopsTable, pricingConfigTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
-import { requireAuth, signToken } from "../middlewares/auth";
+import { requireAuth, signToken } from "../middlewares/auth.js";
 import { randomBytes } from "crypto";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -24,7 +24,7 @@ async function generateUniqueShopCode(): Promise<string> {
   return `PK-${randomBytes(4).toString("hex").toUpperCase()}`;
 }
 
-const router: IRouter = Router();
+const router = Router();
 
 router.post("/auth/register", async (req, res): Promise<void> => {
   const parsed = RegisterBody.safeParse(req.body);

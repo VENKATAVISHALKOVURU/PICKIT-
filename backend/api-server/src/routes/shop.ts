@@ -2,9 +2,9 @@ import { Router, type IRouter } from "express";
 import { db, shopsTable, pricingConfigTable, usersTable } from "@workspace/db";
 import { eq, and, isNotNull } from "drizzle-orm";
 import { UpdateMyShopPricingBody, UpdateMyShopSettingsBody } from "@workspace/api-zod";
-import { requireAuth, requireRole } from "../middlewares/auth";
+import { requireAuth, requireRole } from "../middlewares/auth.js";
 
-const router: IRouter = Router();
+const router = Router();
 
 const serializeShop = (shop: any) => ({
   id: shop.id,

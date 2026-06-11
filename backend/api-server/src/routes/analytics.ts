@@ -1,9 +1,9 @@
 import { Router, type IRouter } from "express";
 import { db, ordersTable, usersTable, shopsTable } from "@workspace/db";
 import { eq, and, gte, sql } from "drizzle-orm";
-import { requireAuth, requireRole } from "../middlewares/auth";
+import { requireAuth, requireRole } from "../middlewares/auth.js";
 
-const router: IRouter = Router();
+const router = Router();
 
 router.get("/analytics/overview", requireAuth, requireRole("owner"), async (req, res): Promise<void> => {
   const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));

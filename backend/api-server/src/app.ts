@@ -1,12 +1,12 @@
-import express, { type Express } from "express";
+import express from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
-import router from "./routes";
-import { logger } from "./lib/logger";
+import router from "./routes/index.js";
+import { logger } from "./lib/logger.js";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 
-const app: Express = express();
+const app = express();
 
 // 1. Security Headers (The Shield)
 app.use(helmet());
@@ -26,7 +26,7 @@ app.use(
   pinoHttp({
     logger,
     serializers: {
-      req(req) {
+      req(req: any) {
         return {
           id: req.id,
           method: req.method,

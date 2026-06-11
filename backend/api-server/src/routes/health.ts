@@ -2,15 +2,15 @@ import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
-import { logger } from "../lib/logger";
+import { logger } from "../lib/logger.js";
 
-const router: IRouter = Router();
+const router = Router();
 
 router.get("/healthz", async (_req, res) => {
   let dbStatus = "ok";
   let dbError: any = null;
   try {
-    await db.run(sql`SELECT 1`);
+    await db.execute(sql`SELECT 1`);
   } catch (err) {
     dbStatus = "error";
     dbError = err;

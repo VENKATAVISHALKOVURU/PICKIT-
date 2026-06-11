@@ -2,9 +2,9 @@ import { Router, type IRouter } from "express";
 import { db, ordersTable, usersTable, shopsTable, pricingConfigTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { CreateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
-import { requireAuth, requireRole } from "../middlewares/auth";
+import { requireAuth, requireRole } from "../middlewares/auth.js";
 
-const router: IRouter = Router();
+const router = Router();
 
 router.post("/orders", requireAuth, requireRole("student"), async (req, res): Promise<void> => {
   const parsed = CreateOrderBody.safeParse(req.body);
