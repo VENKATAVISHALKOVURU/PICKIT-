@@ -1,6 +1,6 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import cors from "cors";
-import pinoHttp from "pino-http";
+import { pinoHttp } from "pino-http";
 import router from "./routes/index.js";
 import { logger } from "./lib/logger.js";
 import helmet from "helmet";
@@ -33,7 +33,7 @@ app.use(
           url: req.url?.split("?")[0],
         };
       },
-      res(res) {
+      res(res: any) {
         return {
           statusCode: res.statusCode,
         };
@@ -59,7 +59,7 @@ app.use(express.json({ limit: "10kb" })); // Body size limit to prevent overflow
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
 // Root route
-app.get("/", (_req, res) => {
+app.get("/", (_req: Request, res: Response) => {
   res.json({
     message: "PickIT API is running",
     version: "1.0.0",
@@ -70,7 +70,7 @@ app.get("/", (_req, res) => {
 app.use("/api", router);
 
 // 404 Handler
-app.use((_req, res) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({
     error: "Not Found",
     message: "The requested resource does not exist. Try /api/healthz to check status."
