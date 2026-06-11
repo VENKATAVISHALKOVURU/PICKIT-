@@ -1,25 +1,22 @@
-import { Router, type IRouter } from "express";
-import { HealthCheckResponse } from "@workspace/api-zod";
+import { Router } from "express";
 import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
 
-router.get("/healthz", async (_req, res) => {
+router.get("/healthz", async (_req: any, res: any) => {
   let dbStatus = "ok";
   let dbError: any = null;
   try {
-    await db.execute(sql`SELECT 1`);
+    await db.execute("SELECT 1");
   } catch (err) {
     dbStatus = "error";
     dbError = err;
     logger.error({ err }, "Database health check failed");
   }
 
-  const data = HealthCheckResponse.parse({ status: "ok" });
   res.json({
-    ...data,
+    status: "ok",
     database: dbStatus,
     error: dbStatus === "error" ? "Check logs for details" : undefined,
     rawError: dbStatus === "error" ? { message: dbError.message, code: dbError.code } : undefined,
