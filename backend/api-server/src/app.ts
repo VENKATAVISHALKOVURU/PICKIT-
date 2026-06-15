@@ -1,5 +1,4 @@
 import express from "express";
-import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { pinoHttp } from "pino-http";
 import router from "./routes/index.js";
@@ -60,7 +59,7 @@ app.use(express.json({ limit: "10kb" })); // Body size limit to prevent overflow
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 
 // Root route
-app.get("/", (_req: Request, res: Response) => {
+app.get("/", (_req: express.Request, res: express.Response) => {
   res.json({
     message: "PickIT API is running",
     version: "1.0.0",
@@ -71,7 +70,7 @@ app.get("/", (_req: Request, res: Response) => {
 app.use("/api", router);
 
 // 404 Handler
-app.use((_req: Request, res: Response) => {
+app.use((_req: express.Request, res: express.Response) => {
   res.status(404).json({
     error: "Not Found",
     message: "The requested resource does not exist. Try /api/healthz to check status."
@@ -79,7 +78,7 @@ app.use((_req: Request, res: Response) => {
 });
 
 // Global Error Handler
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error({ err }, "Unhandled error");
   
   const status = typeof err === 'object' && err !== null && 'status' in err ? (err as any).status : 500;
