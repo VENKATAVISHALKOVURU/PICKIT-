@@ -1,4 +1,5 @@
-import express, { Request, Response, NextFunction } from "express";
+import express from "express";
+import type { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { pinoHttp } from "pino-http";
 import router from "./routes/index.js";
@@ -26,7 +27,7 @@ app.use(
   pinoHttp({
     logger,
     serializers: {
-      req(req: Request) {
+      req(req: Request & { id?: string }) {
         return {
           id: req.id,
           method: req.method,
