@@ -27,14 +27,14 @@ app.use(
   pinoHttp({
     logger,
     serializers: {
-      req(req: Request & { id?: string }) {
+      req(req) {
         return {
           id: req.id,
           method: req.method,
           url: req.url?.split("?")[0],
         };
       },
-      res(res: Response) {
+      res(res) {
         return {
           statusCode: res.statusCode,
         };
