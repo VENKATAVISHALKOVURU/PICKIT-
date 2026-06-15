@@ -1,12 +1,15 @@
-import { Router, type IRouter } from "express";
+import { Router, type Request, type Response } from "express";
 import { db, shopsTable, pricingConfigTable, usersTable } from "@workspace/db";
 import { eq, and, isNotNull } from "drizzle-orm";
 import { UpdateMyShopPricingBody, UpdateMyShopSettingsBody } from "@workspace/api-zod";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
+import type { InferSelectModel } from "drizzle-orm";
 
 const router = Router();
 
-const serializeShop = (shop: any) => ({
+type Shop = InferSelectModel<typeof shopsTable>;
+
+const serializeShop = (shop: Shop) => ({
   id: shop.id,
   ownerId: shop.ownerId,
   name: shop.name,
@@ -29,7 +32,7 @@ function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) 
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-router.get("/shop/my", requireAuth, requireRole("owner"), async (req, res): Promise<void> => {
+router.get("/shop/my", requireAuth, requireRole("owner"), async (req: Request, res: Response): Promise<void> => {
   const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));
   if (!shop) {
     res.status(404).json({ error: "Shop not found" });
@@ -38,7 +41,7 @@ router.get("/shop/my", requireAuth, requireRole("owner"), async (req, res): Prom
   res.json(serializeShop(shop));
 });
 
-router.get("/shop/nearby", async (req, res): Promise<void> => {
+router.get("/shop/nearby", async (req: Request, res: Response): Promise<void> => {
   const lat = parseFloat(String(req.query.lat ?? ""));
   const lng = parseFloat(String(req.query.lng ?? ""));
   const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit ?? "10"), 10) || 10));
@@ -51,7 +54,7 @@ router.get("/shop/nearby", async (req, res): Promise<void> => {
 
   const items = rows.map((s) => {
     const distance = hasCoords && s.latitude != null && s.longitude != null
-      ? distanceMeters(lat, lng, s.latitude, s.longitude)
+      ? distanceMeters(lat, lng, Number(s.latitude), Number(s.longitude))
       : null;
     return { ...serializeShop(s), distanceMeters: distance };
   });
@@ -66,7 +69,7 @@ router.get("/shop/nearby", async (req, res): Promise<void> => {
   res.json({ shops: items.slice(0, limit), origin: hasCoords ? { lat, lng } : null });
 });
 
-router.get("/shop/my/pricing", requireAuth, requireRole("owner"), async (req, res): Promise<void> => {
+router.get("/shop/my/pricing", requireAuth, requireRole("owner"), async (req: Request, res: Response): Promise<void> => {
   const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));
   if (!shop) {
     res.status(404).json({ error: "Shop not found" });
@@ -88,7 +91,7 @@ router.get("/shop/my/pricing", requireAuth, requireRole("owner"), async (req, re
   });
 });
 
-router.put("/shop/my/pricing", requireAuth, requireRole("owner"), async (req, res): Promise<void> => {
+router.put("/shop/my/pricing", requireAuth, requireRole("owner"), async (req: Request, res: Response): Promise<void> => {
   const parsed = UpdateMyShopPricingBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -120,7 +123,7 @@ router.put("/shop/my/pricing", requireAuth, requireRole("owner"), async (req, re
   });
 });
 
-router.put("/shop/my/settings", requireAuth, requireRole("owner"), async (req, res): Promise<void> => {
+router.put("/shop/my/settings", requireAuth, requireRole("owner"), async (req: Request, res: Response): Promise<void> => {
   const parsed = UpdateMyShopSettingsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -138,8 +141,9 @@ router.put("/shop/my/settings", requireAuth, requireRole("owner"), async (req, r
   if (parsed.data.address !== undefined) updateData.address = parsed.data.address;
   if (parsed.data.isOpen !== undefined) updateData.isOpen = parsed.data.isOpen;
   // Accept latitude/longitude (not in OpenAPI schema yet) — passed through raw body
-  const rawLat = (req.body as any)?.latitude;
-  const rawLng = (req.body as any)?.longitude;
+  const body = req.body as Record<string, unknown> | null;
+  const rawLat = body?.latitude;
+  const rawLng = body?.longitude;
   if (typeof rawLat === "number") updateData.latitude = rawLat;
   if (typeof rawLng === "number") updateData.longitude = rawLng;
   if (rawLat === null) updateData.latitude = null;
@@ -154,7 +158,7 @@ router.put("/shop/my/settings", requireAuth, requireRole("owner"), async (req, r
   res.json(serializeShop(updated));
 });
 
-router.get("/shop/pricing/:shopId", requireAuth, async (req, res): Promise<void> => {
+router.get("/shop/pricing/:shopId", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const raw = Array.isArray(req.params.shopId) ? req.params.shopId[0] : req.params.shopId;
   const shopId = parseInt(raw, 10);
   if (isNaN(shopId)) {
@@ -177,7 +181,7 @@ router.get("/shop/pricing/:shopId", requireAuth, async (req, res): Promise<void>
   });
 });
 
-router.post("/shop/join/:shopCode", requireAuth, async (req, res): Promise<void> => {
+router.post("/shop/join/:shopCode", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const shopCode = Array.isArray(req.params.shopCode) ? req.params.shopCode[0] : req.params.shopCode;
 
   const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.shopCode, shopCode));
@@ -194,7 +198,7 @@ router.post("/shop/join/:shopCode", requireAuth, async (req, res): Promise<void>
   res.json(serializeShop(shop));
 });
 
-router.get("/shop/info/:shopCode", async (req, res): Promise<void> => {
+router.get("/shop/info/:shopCode", async (req: Request, res: Response): Promise<void> => {
   const shopCode = Array.isArray(req.params.shopCode) ? req.params.shopCode[0] : req.params.shopCode;
 
   const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.shopCode, shopCode));

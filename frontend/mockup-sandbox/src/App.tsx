@@ -1,22 +1,46 @@
-import { useEffect, useState, type ComponentType } from "react";
+import React, { useEffect, useState, type ComponentType } from "react";
 
-import { modules as discoveredModules } from "./.generated/mockup-components";
+// @ts-expect-error virtual module
+import { modules as discoveredModules } from "virtual:mockup-components";
 
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
+
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: "2rem", color: "red", fontFamily: "system-ui" }}>
+          <h2>Render Error</h2>
+          <pre style={{ whiteSpace: "pre-wrap" }}>
+            {this.state.error?.message || "Unknown rendering error."}
+          </pre>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function _resolveComponent(
   mod: Record<string, unknown>,
   name: string,
 ): ComponentType | undefined {
-  const fns = Object.values(mod).filter(
-    (v) => typeof v === "function",
-  ) as ComponentType[];
-  return (
-    (mod.default as ComponentType) ||
-    (mod.Preview as ComponentType) ||
-    (mod[name] as ComponentType) ||
-    fns[fns.length - 1]
-  );
+  // We explicitly require a default export for stability.
+  return mod.default as ComponentType | undefined;
 }
 
 function PreviewRenderer({
@@ -52,7 +76,7 @@ function PreviewRenderer({
         const comp = _resolveComponent(mod, name);
         if (!comp) {
           setError(
-            `No exported React component found in ${componentPath}.tsx\n\nMake sure the file has at least one exported function component.`,
+            `No default export found in ${componentPath}.tsx\n\nPlease ensure your component file ends with 'export default YourComponentName;'.`,
           );
           return;
         }
@@ -84,7 +108,11 @@ function PreviewRenderer({
 
   if (!Component) return null;
 
-  return <Component />;
+  return (
+    <ErrorBoundary>
+      <Component />
+    </ErrorBoundary>
+  );
 }
 
 function getBasePath(): string {
