@@ -1,6 +1,5 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -9,7 +8,12 @@ router.get("/healthz", async (_req: Request, res: Response) => {
   let dbStatus = "ok";
   let dbError: unknown = null;
   try {
-    await db.execute(sql`SELECT 1`);
+    if (db.readyState !== 1) {
+      throw new Error("Database not connected");
+    }
+    if (db.db) {
+        await db.db.admin().ping();
+    }
   } catch (err) {
     dbStatus = "error";
     dbError = err;

@@ -38,8 +38,8 @@ packages:
   - frontend/*
   - backend/*
   - database/*
-  - shared/*
-  - scripts
+  - backend/shared/*
+  - backend/scripts
 
 catalog:
   '@replit/vite-plugin-cartographer': ^0.5.1
