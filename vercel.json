@@ -1,54 +1,13 @@
 {
   "version": 2,
-  "outputDirectory": "frontend/pickit/dist",
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "/api"
     },
     {
-      "source": "/(.*\\.js)",
-      "destination": "frontend/pickit/$1"
-    },
-    {
-      "source": "/(.*\\.css)",
-      "destination": "frontend/pickit/$1"
-    },
-    {
-      "source": "/(.*\\.svg)",
-      "destination": "frontend/pickit/$1"
-    },
-    {
-      "source": "/(.*\\.png)",
-      "destination": "frontend/pickit/$1"
-    },
-    {
-      "source": "/(.*\\.jpg)",
-      "destination": "frontend/pickit/$1"
-    },
-    {
-      "source": "/(.*\\.ico)",
-      "destination": "frontend/pickit/$1"
-    },
-    {
-      "source": "/(.*\\.json)",
-      "destination": "frontend/pickit/$1"
-    },
-    {
-      "source": "/(.*\\.woff2?)",
-      "destination": "frontend/pickit/$1"
-    },
-    {
-      "source": "/(.*\\.ttf)",
-      "destination": "frontend/pickit/$1"
-    },
-    {
-      "source": "/(.*\\.map)",
-      "destination": "frontend/pickit/$1"
-    },
-    {
       "source": "/(.*)",
-      "destination": "frontend/pickit/index.html"
+      "destination": "/index.html"
     }
   ]
 }
