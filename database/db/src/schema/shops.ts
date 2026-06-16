@@ -1,20 +1,47 @@
-import { pgTable, text, integer, doublePrecision, boolean, serial, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+import mongoose, { Document, Model, Schema } from "mongoose";
+// @ts-ignore
+import AutoIncrementFactory from "mongoose-sequence";
 import { z } from "zod/v4";
-import { sql } from "drizzle-orm";
 
-export const shopsTable = pgTable("shops", {
-  id: serial("id").primaryKey(),
-  ownerId: integer("owner_id").notNull(),
-  name: text("name").notNull(),
-  shopCode: text("shop_code").notNull().unique(),
-  address: text("address"),
-  latitude: doublePrecision("latitude"),
-  longitude: doublePrecision("longitude"),
-  isOpen: boolean("is_open").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+const AutoIncrement = AutoIncrementFactory(mongoose);
+
+export interface Shop extends Document {
+  id: number;
+  ownerId: number;
+  name: string;
+  shopCode: string;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  isOpen: boolean;
+  createdAt: Date;
+}
+
+const shopSchema = new Schema<Shop>({
+  id: { type: Number, unique: true },
+  ownerId: { type: Number, required: true },
+  name: { type: String, required: true },
+  shopCode: { type: String, required: true, unique: true },
+  address: { type: String },
+  latitude: { type: Number },
+  longitude: { type: Number },
+  isOpen: { type: Boolean, required: true, default: true },
+  createdAt: { type: Date, default: Date.now }
 });
 
-export const insertShopSchema = createInsertSchema(shopsTable).omit({ id: true, createdAt: true });
+shopSchema.plugin(AutoIncrement, { inc_field: 'id', id: 'shops_id_counter' });
+
+export const ShopModel: Model<Shop> = mongoose.models?.Shop || mongoose.model<Shop>("Shop", shopSchema);
+export const shopsTable = ShopModel;
+
+export const insertShopSchema = z.object({
+  ownerId: z.number(),
+  name: z.string(),
+  shopCode: z.string(),
+  address: z.string().optional().nullable(),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  isOpen: z.boolean().optional().default(true),
+});
+
 export type InsertShop = z.infer<typeof insertShopSchema>;
-export type Shop = typeof shopsTable.$inferSelect;

@@ -1,18 +1,17 @@
 import { Router, type IRouter } from "express";
-import { db, ordersTable, usersTable, shopsTable } from "@workspace/db";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { OrderModel, ShopModel } from "@workspace/db";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
 
 const router = Router();
 
 router.get("/analytics/overview", requireAuth, requireRole("owner"), async (req, res): Promise<void> => {
-  const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));
+  const shop = await ShopModel.findOne({ ownerId: req.user!.userId });
   if (!shop) {
     res.json({ totalOrders: 0, pendingOrders: 0, todayRevenue: 0, totalRevenue: 0, activeStudents: 0 });
     return;
   }
 
-  const allOrders = await db.select().from(ordersTable).where(eq(ordersTable.shopId, shop.id));
+  const allOrders = await OrderModel.find({ shopId: shop.id });
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -31,7 +30,7 @@ router.get("/analytics/overview", requireAuth, requireRole("owner"), async (req,
 });
 
 router.get("/analytics/orders-by-day", requireAuth, requireRole("owner"), async (req, res): Promise<void> => {
-  const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));
+  const shop = await ShopModel.findOne({ ownerId: req.user!.userId });
   if (!shop) {
     res.json([]);
     return;
@@ -41,9 +40,10 @@ router.get("/analytics/orders-by-day", requireAuth, requireRole("owner"), async 
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
-  const orders = await db.select().from(ordersTable).where(
-    and(eq(ordersTable.shopId, shop.id), gte(ordersTable.createdAt, sevenDaysAgo))
-  );
+  const orders = await OrderModel.find({
+    shopId: shop.id,
+    createdAt: { $gte: sevenDaysAgo }
+  });
 
   const result: { date: string; count: number }[] = [];
   for (let i = 6; i >= 0; i--) {
@@ -58,7 +58,7 @@ router.get("/analytics/orders-by-day", requireAuth, requireRole("owner"), async 
 });
 
 router.get("/analytics/revenue-trend", requireAuth, requireRole("owner"), async (req, res): Promise<void> => {
-  const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));
+  const shop = await ShopModel.findOne({ ownerId: req.user!.userId });
   if (!shop) {
     res.json([]);
     return;
@@ -68,9 +68,10 @@ router.get("/analytics/revenue-trend", requireAuth, requireRole("owner"), async 
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
   sevenDaysAgo.setHours(0, 0, 0, 0);
 
-  const orders = await db.select().from(ordersTable).where(
-    and(eq(ordersTable.shopId, shop.id), gte(ordersTable.createdAt, sevenDaysAgo))
-  );
+  const orders = await OrderModel.find({
+    shopId: shop.id,
+    createdAt: { $gte: sevenDaysAgo }
+  });
 
   const result: { date: string; revenue: number }[] = [];
   for (let i = 6; i >= 0; i--) {

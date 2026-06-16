@@ -1,23 +1,55 @@
-import { pgTable, text, integer, doublePrecision, serial, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+import mongoose, { Document, Model, Schema } from "mongoose";
+// @ts-ignore
+import AutoIncrementFactory from "mongoose-sequence";
 import { z } from "zod/v4";
-import { sql } from "drizzle-orm";
 
-export const ordersTable = pgTable("orders", {
-  id: serial("id").primaryKey(),
-  studentId: integer("student_id").notNull(),
-  shopId: integer("shop_id").notNull(),
-  fileUrl: text("file_url").notNull(),
-  fileName: text("file_name").notNull(),
-  pages: integer("pages").notNull(),
-  colorMode: text("color_mode").notNull(),
-  copies: integer("copies").notNull(),
-  status: text("status").notNull().default("pending"),
-  price: doublePrecision("price").notNull(),
-  note: text("note"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+const AutoIncrement = AutoIncrementFactory(mongoose);
+
+export interface Order extends Document {
+  id: number;
+  studentId: number;
+  shopId: number;
+  fileUrl: string;
+  fileName: string;
+  pages: number;
+  colorMode: string;
+  copies: number;
+  status: string;
+  price: number;
+  note?: string | null;
+  createdAt: Date;
+}
+
+const orderSchema = new Schema<Order>({
+  id: { type: Number, unique: true },
+  studentId: { type: Number, required: true },
+  shopId: { type: Number, required: true },
+  fileUrl: { type: String, required: true },
+  fileName: { type: String, required: true },
+  pages: { type: Number, required: true },
+  colorMode: { type: String, required: true },
+  copies: { type: Number, required: true },
+  status: { type: String, required: true, default: "pending" },
+  price: { type: Number, required: true },
+  note: { type: String },
+  createdAt: { type: Date, default: Date.now }
 });
 
-export const insertOrderSchema = createInsertSchema(ordersTable).omit({ id: true, createdAt: true, status: true });
+orderSchema.plugin(AutoIncrement, { inc_field: 'id', id: 'orders_id_counter' });
+
+export const OrderModel: Model<Order> = mongoose.models?.Order || mongoose.model<Order>("Order", orderSchema);
+export const ordersTable = OrderModel; // Keep this exported
+
+export const insertOrderSchema = z.object({
+  studentId: z.number(),
+  shopId: z.number(),
+  fileUrl: z.string(),
+  fileName: z.string(),
+  pages: z.number(),
+  colorMode: z.string(),
+  copies: z.number(),
+  price: z.number(),
+  note: z.string().optional().nullable(),
+});
+
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
-export type Order = typeof ordersTable.$inferSelect;

@@ -1,13 +1,9 @@
 import { Router, type Request, type Response } from "express";
-import { db, shopsTable, pricingConfigTable, usersTable } from "@workspace/db";
-import { eq, and, isNotNull } from "drizzle-orm";
+import { ShopModel, PricingConfigModel, UserModel, Shop } from "@workspace/db";
 import { UpdateMyShopPricingBody, UpdateMyShopSettingsBody } from "@workspace/api-zod";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
-import type { InferSelectModel } from "drizzle-orm";
 
 const router = Router();
-
-type Shop = InferSelectModel<typeof shopsTable>;
 
 const serializeShop = (shop: Shop) => ({
   id: shop.id,
@@ -33,7 +29,7 @@ function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) 
 }
 
 router.get("/shop/my", requireAuth, requireRole("owner"), async (req: Request, res: Response): Promise<void> => {
-  const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));
+  const shop = await ShopModel.findOne({ ownerId: req.user!.userId });
   if (!shop) {
     res.status(404).json({ error: "Shop not found" });
     return;
@@ -47,10 +43,10 @@ router.get("/shop/nearby", async (req: Request, res: Response): Promise<void> =>
   const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit ?? "10"), 10) || 10));
   const hasCoords = !isNaN(lat) && !isNaN(lng);
 
-  const rows = await db
-    .select()
-    .from(shopsTable)
-    .where(and(isNotNull(shopsTable.latitude), isNotNull(shopsTable.longitude)));
+  const rows = await ShopModel.find({
+    latitude: { $ne: null },
+    longitude: { $ne: null }
+  });
 
   const items = rows.map((s) => {
     const distance = hasCoords && s.latitude != null && s.longitude != null
@@ -70,13 +66,13 @@ router.get("/shop/nearby", async (req: Request, res: Response): Promise<void> =>
 });
 
 router.get("/shop/my/pricing", requireAuth, requireRole("owner"), async (req: Request, res: Response): Promise<void> => {
-  const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));
+  const shop = await ShopModel.findOne({ ownerId: req.user!.userId });
   if (!shop) {
     res.status(404).json({ error: "Shop not found" });
     return;
   }
 
-  const [pricing] = await db.select().from(pricingConfigTable).where(eq(pricingConfigTable.shopId, shop.id));
+  const pricing = await PricingConfigModel.findOne({ shopId: shop.id });
   if (!pricing) {
     res.status(404).json({ error: "Pricing config not found" });
     return;
@@ -98,28 +94,28 @@ router.put("/shop/my/pricing", requireAuth, requireRole("owner"), async (req: Re
     return;
   }
 
-  const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));
+  const shop = await ShopModel.findOne({ ownerId: req.user!.userId });
   if (!shop) {
     res.status(404).json({ error: "Shop not found" });
     return;
   }
 
-  const [pricing] = await db
-    .update(pricingConfigTable)
-    .set({
+  const pricing = await PricingConfigModel.findOneAndUpdate(
+    { shopId: shop.id },
+    {
       bwPerPage: parsed.data.bwPerPage,
       colorPerPage: parsed.data.colorPerPage,
       minimumOrder: parsed.data.minimumOrder,
-    })
-    .where(eq(pricingConfigTable.shopId, shop.id))
-    .returning();
+    },
+    { new: true }
+  );
 
   res.json({
-    id: pricing.id,
-    shopId: pricing.shopId,
-    bwPerPage: pricing.bwPerPage,
-    colorPerPage: pricing.colorPerPage,
-    minimumOrder: pricing.minimumOrder,
+    id: pricing?.id,
+    shopId: pricing?.shopId,
+    bwPerPage: pricing?.bwPerPage,
+    colorPerPage: pricing?.colorPerPage,
+    minimumOrder: pricing?.minimumOrder,
   });
 });
 
@@ -130,17 +126,17 @@ router.put("/shop/my/settings", requireAuth, requireRole("owner"), async (req: R
     return;
   }
 
-  const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));
+  const shop = await ShopModel.findOne({ ownerId: req.user!.userId });
   if (!shop) {
     res.status(404).json({ error: "Shop not found" });
     return;
   }
 
-  const updateData: Partial<typeof shopsTable.$inferInsert> = {};
+  const updateData: any = {};
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
   if (parsed.data.address !== undefined) updateData.address = parsed.data.address;
   if (parsed.data.isOpen !== undefined) updateData.isOpen = parsed.data.isOpen;
-  // Accept latitude/longitude (not in OpenAPI schema yet) — passed through raw body
+  
   const body = req.body as Record<string, unknown> | null;
   const rawLat = body?.latitude;
   const rawLng = body?.longitude;
@@ -149,13 +145,13 @@ router.put("/shop/my/settings", requireAuth, requireRole("owner"), async (req: R
   if (rawLat === null) updateData.latitude = null;
   if (rawLng === null) updateData.longitude = null;
 
-  const [updated] = await db
-    .update(shopsTable)
-    .set(updateData)
-    .where(eq(shopsTable.id, shop.id))
-    .returning();
+  const updated = await ShopModel.findOneAndUpdate(
+    { id: shop.id },
+    updateData,
+    { new: true }
+  );
 
-  res.json(serializeShop(updated));
+  res.json(serializeShop(updated!));
 });
 
 router.get("/shop/pricing/:shopId", requireAuth, async (req: Request, res: Response): Promise<void> => {
@@ -166,7 +162,7 @@ router.get("/shop/pricing/:shopId", requireAuth, async (req: Request, res: Respo
     return;
   }
 
-  const [pricing] = await db.select().from(pricingConfigTable).where(eq(pricingConfigTable.shopId, shopId));
+  const pricing = await PricingConfigModel.findOne({ shopId });
   if (!pricing) {
     res.json({ id: 0, shopId, bwPerPage: 2, colorPerPage: 5, minimumOrder: 10 });
     return;
@@ -184,16 +180,16 @@ router.get("/shop/pricing/:shopId", requireAuth, async (req: Request, res: Respo
 router.post("/shop/join/:shopCode", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const shopCode = Array.isArray(req.params.shopCode) ? req.params.shopCode[0] : req.params.shopCode;
 
-  const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.shopCode, shopCode));
+  const shop = await ShopModel.findOne({ shopCode });
   if (!shop) {
     res.status(404).json({ error: "Shop not found" });
     return;
   }
 
-  await db
-    .update(usersTable)
-    .set({ shopId: shop.id })
-    .where(eq(usersTable.id, req.user!.userId));
+  await UserModel.findOneAndUpdate(
+    { id: req.user!.userId },
+    { shopId: shop.id }
+  );
 
   res.json(serializeShop(shop));
 });
@@ -201,7 +197,7 @@ router.post("/shop/join/:shopCode", requireAuth, async (req: Request, res: Respo
 router.get("/shop/info/:shopCode", async (req: Request, res: Response): Promise<void> => {
   const shopCode = Array.isArray(req.params.shopCode) ? req.params.shopCode[0] : req.params.shopCode;
 
-  const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.shopCode, shopCode));
+  const shop = await ShopModel.findOne({ shopCode });
   if (!shop) {
     res.status(404).json({ error: "Shop not found" });
     return;

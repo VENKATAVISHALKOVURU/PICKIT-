@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable, shopsTable, pricingConfigTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { UserModel, ShopModel, PricingConfigModel } from "@workspace/db";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import { requireAuth, signToken } from "../middlewares/auth.js";
 import { randomBytes } from "crypto";
@@ -18,8 +17,8 @@ function generateShopCode(): string {
 async function generateUniqueShopCode(): Promise<string> {
   for (let attempt = 0; attempt < 8; attempt++) {
     const code = generateShopCode();
-    const existing = await db.select().from(shopsTable).where(eq(shopsTable.shopCode, code));
-    if (existing.length === 0) return code;
+    const existing = await ShopModel.findOne({ shopCode: code });
+    if (!existing) return code;
   }
   return `PK-${randomBytes(4).toString("hex").toUpperCase()}`;
 }
@@ -35,37 +34,41 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   const { name, email, password, role, shopName, shopAddress } = parsed.data;
 
-  const existing = await db.select().from(usersTable).where(eq(usersTable.email, email));
-  if (existing.length > 0) {
+  const existing = await UserModel.findOne({ email });
+  if (existing) {
     res.status(400).json({ error: "Email already registered" });
     return;
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const [user] = await db.insert(usersTable).values({
+  const user = await UserModel.create({
     name,
     email,
     password: hashedPassword,
     role,
-  }).returning();
+  });
 
   if (role === "owner") {
     const shopCode = await generateUniqueShopCode();
-    const [shop] = await db.insert(shopsTable).values({
+    const shop = await ShopModel.create({
       ownerId: user.id,
       name: shopName || `${name}'s Print Shop`,
       shopCode,
       address: shopAddress || null,
       isOpen: true,
-    }).returning();
+    });
 
-    await db.insert(pricingConfigTable).values({
+    await PricingConfigModel.create({
       shopId: shop.id,
       bwPerPage: 2,
       colorPerPage: 5,
       minimumOrder: 10,
     });
+
+    // Update user with shopId
+    user.shopId = shop.id;
+    await user.save();
   }
 
   const token = signToken({ userId: user.id, role: user.role, email: user.email });
@@ -91,7 +94,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   const { email, password } = parsed.data;
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  const user = await UserModel.findOne({ email });
   if (!user) {
     res.status(401).json({ error: "Invalid credentials" });
     return;
@@ -118,7 +121,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 });
 
 router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId));
+  const user = await UserModel.findOne({ id: req.user!.userId });
   if (!user) {
     res.status(401).json({ error: "User not found" });
     return;

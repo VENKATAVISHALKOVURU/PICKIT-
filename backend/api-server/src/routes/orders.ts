@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, ordersTable, usersTable, shopsTable, pricingConfigTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { OrderModel, UserModel, ShopModel, PricingConfigModel } from "@workspace/db";
 import { CreateOrderBody, UpdateOrderStatusBody } from "@workspace/api-zod";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
 
@@ -15,11 +14,11 @@ router.post("/orders", requireAuth, requireRole("student"), async (req, res): Pr
 
   const { shopId, fileUrl, fileName, pages, colorMode, copies, note } = parsed.data;
 
-  const [pricing] = await db.select().from(pricingConfigTable).where(eq(pricingConfigTable.shopId, shopId));
+  const pricing = await PricingConfigModel.findOne({ shopId });
   const perPage = colorMode === "color" ? (pricing?.colorPerPage ?? 5) : (pricing?.bwPerPage ?? 2);
   const price = Math.max(pages * copies * perPage, pricing?.minimumOrder ?? 10);
 
-  const [order] = await db.insert(ordersTable).values({
+  const order = await OrderModel.create({
     studentId: req.user!.userId,
     shopId,
     fileUrl,
@@ -30,7 +29,7 @@ router.post("/orders", requireAuth, requireRole("student"), async (req, res): Pr
     status: "pending",
     price,
     note: note || null,
-  }).returning();
+  });
 
   res.status(201).json({
     id: order.id,
@@ -50,7 +49,7 @@ router.post("/orders", requireAuth, requireRole("student"), async (req, res): Pr
 });
 
 router.get("/orders/student", requireAuth, requireRole("student"), async (req, res): Promise<void> => {
-  const orders = await db.select().from(ordersTable).where(eq(ordersTable.studentId, req.user!.userId));
+  const orders = await OrderModel.find({ studentId: req.user!.userId });
 
   res.json(orders.map(o => ({
     id: o.id,
@@ -70,17 +69,17 @@ router.get("/orders/student", requireAuth, requireRole("student"), async (req, r
 });
 
 router.get("/orders/shop", requireAuth, requireRole("owner"), async (req, res): Promise<void> => {
-  const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));
+  const shop = await ShopModel.findOne({ ownerId: req.user!.userId });
   if (!shop) {
     res.json([]);
     return;
   }
 
-  const orders = await db.select().from(ordersTable).where(eq(ordersTable.shopId, shop.id));
+  const orders = await OrderModel.find({ shopId: shop.id });
 
   const studentIds = [...new Set(orders.map(o => o.studentId))];
   const students = studentIds.length > 0
-    ? await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable)
+    ? await UserModel.find({ id: { $in: studentIds } }).select("id name")
     : [];
 
   const studentMap = new Map(students.map(s => [s.id, s.name]));
@@ -116,17 +115,17 @@ router.patch("/orders/:id/status", requireAuth, requireRole("owner"), async (req
     return;
   }
 
-  const [shop] = await db.select().from(shopsTable).where(eq(shopsTable.ownerId, req.user!.userId));
+  const shop = await ShopModel.findOne({ ownerId: req.user!.userId });
   if (!shop) {
     res.status(403).json({ error: "No shop associated with this owner" });
     return;
   }
 
-  const [order] = await db
-    .update(ordersTable)
-    .set({ status: parsed.data.status })
-    .where(and(eq(ordersTable.id, id), eq(ordersTable.shopId, shop.id)))
-    .returning();
+  const order = await OrderModel.findOneAndUpdate(
+    { id, shopId: shop.id },
+    { status: parsed.data.status },
+    { new: true }
+  );
 
   if (!order) {
     res.status(404).json({ error: "Order not found" });
