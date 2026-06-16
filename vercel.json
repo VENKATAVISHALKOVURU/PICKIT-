@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "outputDirectory": "frontend/pickit/dist",
   "builds": [
     {
       "src": "backend/api-server/src/app.ts",
