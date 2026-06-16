@@ -10,7 +10,7 @@
       "path": "./frontend/api-client-react"
     },
     {
-      "path": "./shared/api-zod"
+      "path": "./backend/shared/api-zod"
     },
     {
       "path": "./backend/api-server"

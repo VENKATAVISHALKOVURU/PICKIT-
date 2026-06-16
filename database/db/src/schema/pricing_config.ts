@@ -1,7 +1,7 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 // @ts-ignore
 import AutoIncrementFactory from "mongoose-sequence";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 const AutoIncrement = AutoIncrementFactory(mongoose);
 
